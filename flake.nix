@@ -20,6 +20,10 @@
           inherit system;
         };
         dependencies = with stable; [
+          coreutils
+          gnused
+          gnugrep
+          unixtools.column
           fzf
           openssh
           ncurses
