@@ -13,13 +13,9 @@
   };
   outputs =
     { self, flake-utils, ... }@inputs:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        stable = import inputs.nixpkgs {
-          inherit system;
-        };
-        dependencies = with stable; [
+    let
+      dependencies =
+        pkgs: with pkgs; [
           coreutils
           gnused
           gnugrep
@@ -28,17 +24,33 @@
           openssh
           ncurses
         ];
+      fshf =
+        pkgs:
+        pkgs.writeShellApplication {
+          name = "fshf";
+          runtimeInputs = dependencies pkgs;
+          text = builtins.readFile ./fshf.sh;
+        };
+    in
+    {
+      overlays.default = final: prev: {
+        fshf = fshf final;
+      };
+    }
+    // flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        stable = import inputs.nixpkgs {
+          inherit system;
+        };
+
         treefmtEval = inputs.treefmt-nix.lib.evalModule stable ./treefmt.nix;
       in
       rec {
         devShells.default = stable.mkShell {
-          buildInputs = dependencies;
+          buildInputs = dependencies stable;
         };
-        packages.fshf = stable.writeShellApplication {
-          name = "session-chooser";
-          runtimeInputs = dependencies;
-          text = builtins.readFile ./session-chooser.sh;
-        };
+        packages.fshf = fshf stable;
         packages.default = packages.fshf;
         formatter = treefmtEval.config.build.wrapper;
         checks = {
