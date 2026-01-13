@@ -1,18 +1,15 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
-    flake-utils = {
-      url = "github:numtide/flake-utils";
-      inputs.systems.follows = "systems";
-    };
-    systems.url = "github:nix-systems/default-linux";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    systems.url = "github:nix-systems/default";
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
   outputs =
-    { self, flake-utils, ... }@inputs:
+    { self, ... }@inputs:
     let
       dependencies =
         pkgs: with pkgs; [
@@ -24,7 +21,7 @@
           openssh
           ncurses
         ];
-      fshf =
+      app =
         pkgs:
         pkgs.writeShellApplication {
           name = "fshf";
@@ -32,30 +29,31 @@
           text = builtins.readFile ./fshf.sh;
         };
     in
-    {
-      overlays.default = final: prev: {
-        fshf = fshf final;
-      };
-    }
-    // flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        stable = import inputs.nixpkgs {
-          inherit system;
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } (
+      { ... }:
+      {
+        systems = import inputs.systems;
+        flake = {
+          overlays.default = final: prev: {
+            fshf = app final;
+          };
         };
+        perSystem =
+          { pkgs, ... }:
+          let
+            treefmtEval = inputs.treefmt-nix.lib.evalModule pkgs ./treefmt.nix;
+          in
+          {
+            packages.default = app pkgs;
+            devShells.default = pkgs.mkShell {
+              buildInputs = dependencies pkgs;
+            };
 
-        treefmtEval = inputs.treefmt-nix.lib.evalModule stable ./treefmt.nix;
-      in
-      rec {
-        devShells.default = stable.mkShell {
-          buildInputs = dependencies stable;
-        };
-        packages.fshf = fshf stable;
-        packages.default = packages.fshf;
-        formatter = treefmtEval.config.build.wrapper;
-        checks = {
-          formatting = treefmtEval.config.build.check self;
-        };
+            formatter = treefmtEval.config.build.wrapper;
+            checks = {
+              formatting = treefmtEval.config.build.check self;
+            };
+          };
       }
     );
 }
