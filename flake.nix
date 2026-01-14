@@ -10,43 +10,32 @@
   };
   outputs =
     { self, ... }@inputs:
-    let
-      dependencies =
-        pkgs: with pkgs; [
-          coreutils
-          gnused
-          gnugrep
-          unixtools.column
-          fzf
-          openssh
-          ncurses
-        ];
-      app =
-        pkgs:
-        pkgs.writeShellApplication {
-          name = "fshf";
-          runtimeInputs = dependencies pkgs;
-          text = builtins.readFile ./fshf.sh;
-        };
-    in
     inputs.flake-parts.lib.mkFlake { inherit inputs; } (
       { ... }:
       {
         systems = import inputs.systems;
-        flake = {
-          overlays.default = final: prev: {
-            fshf = app final;
-          };
-        };
         perSystem =
           { pkgs, ... }:
           let
+            dependencies = with pkgs; [
+              coreutils
+              gnused
+              gnugrep
+              unixtools.column
+              fzf
+              openssh
+              ncurses
+            ];
             treefmtEval = inputs.treefmt-nix.lib.evalModule pkgs ./treefmt.nix;
           in
           {
-            packages.default = app pkgs;
+            packages.default = pkgs.writeShellApplication {
+              name = "fshf";
+              runtimeInputs = dependencies;
+              text = builtins.readFile ./fshf.sh;
+            };
             devShells.default = pkgs.mkShell {
-              buildInputs = dependencies pkgs;
+              buildInputs = dependencies;
             };
 
             formatter = treefmtEval.config.build.wrapper;
@@ -54,6 +43,11 @@
               formatting = treefmtEval.config.build.check self;
             };
           };
+        flake = {
+          overlays.default = final: prev: {
+            fshf = self.packages.${final.stdenv.hostPlatform.system}.default;
+          };
+        };
       }
     );
 }
