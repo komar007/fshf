@@ -99,7 +99,7 @@ ENTRIES=$(
 if [ "$FSHF_PADDING" -gt 0 ]; then
 	FZF_PADDING="\
 		--border top \
-		--padding $((FSHF_PADDING-1)),$((FSHF_PADDING*2)),$((FSHF_PADDING)),$((FSHF_PADDING*2)) \
+		--padding $((FSHF_PADDING - 1)),$((FSHF_PADDING * 2)),$((FSHF_PADDING)),$((FSHF_PADDING * 2)) \
 	"
 else
 	FZF_PADDING="--border none"
