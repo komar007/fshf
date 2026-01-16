@@ -16,6 +16,10 @@ CONFIG="$HOME/.ssh/config"
 REMOTE_CMD=${REMOTE_CMD:-''}
 PAUSE_AFTER_SSH_FAIL=${PAUSE_AFTER_SSH_FAIL:-1}
 
+: "${FSHF_MARGIN:=30%,20%}"
+: "${FSHF_PADDING:=2}"
+: "${FSHF_BG:=#222222}"
+
 readarray -t includes < <(sed -rn 's/^Include (.*)$/\1/p' "$CONFIG")
 files=("$CONFIG" "${includes[@]}")
 
@@ -92,22 +96,29 @@ ENTRIES=$(
 	done
 )
 
+if [ "$FSHF_PADDING" -gt 0 ]; then
+	FZF_PADDING="\
+		--border top \
+		--padding $((FSHF_PADDING-1)),$((FSHF_PADDING*2)),$((FSHF_PADDING)),$((FSHF_PADDING*2)) \
+	"
+else
+	FZF_PADDING="--border none"
+fi
+
 N=$(
 	# columnize the <fzf-column-1>,<fzf-column-2> part
 	ENTRIES_FZF=$(echo "$ENTRIES" | cut -f 2- -d ' ' | column -dt -C left -s,)
-	# shellcheck disable=SC2016
+	# shellcheck disable=SC2016,SC2086
 	fzf \
 		--ansi \
 		--height=100% \
 		--delimiter=' ' \
 		--accept-nth='{n}' \
-		--color='bg:#222222,current-bg:#555555,gutter:#333333' \
+		--color="bg:${FSHF_BG},border:${FSHF_BG}" \
 		--highlight-line \
-		--border top \
-		--border-label "$(yes ' ' | head -n "$(tput cols)" | tr -d '\n')" \
-		--margin 30%,20% \
+		--margin "${FSHF_MARGIN}" \
 		--algo v1 \
-		--padding 2,4 \
+		$FZF_PADDING \
 		--preview-window=top,wrap,border-none \
 		--preview ' \
 			E=$(sed -n $(({n}+1))p <<< "'"$ENTRIES"'" | cut -f 1 -d " "); \
