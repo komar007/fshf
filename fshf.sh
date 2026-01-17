@@ -1,27 +1,16 @@
 #!/usr/bin/env bash
 
-# Environment variables:
-#
-# REMOTE_CMD
-# Set to non-empty string to execute its content on the remote side for all ssh
-# connections that don't have 'RemoteCommand' defined in .ssh/config.
-#
-# PAUSE_AFTER_SSH_FAIL
-# Set to 0 to disable pausing and waiting for return key after unsuccessful ssh
-# exit status
-#
 set -e
 
-CONFIG="$HOME/.ssh/config"
-REMOTE_CMD=${REMOTE_CMD:-''}
-PAUSE_AFTER_SSH_FAIL=${PAUSE_AFTER_SSH_FAIL:-1}
-
+: "${FSHF_REMOTE_CMD:=''}"
+: "${FSHF_PAUSE_AFTER_SSH_FAIL:=1}"
 : "${FSHF_MARGIN:=30%,20%}"
 : "${FSHF_PADDING:=2}"
 : "${FSHF_BG:=#222222}"
 
-readarray -t includes < <(sed -rn 's/^Include (.*)$/\1/p' "$CONFIG")
-files=("$CONFIG" "${includes[@]}")
+SSH_CONFIG="$HOME/.ssh/config"
+readarray -t includes < <(sed -rn 's/^Include (.*)$/\1/p' "$SSH_CONFIG")
+files=("$SSH_CONFIG" "${includes[@]}")
 
 HOSTS=()
 for file in "${files[@]}"; do
@@ -125,10 +114,10 @@ N=$(
 			IFS=: read -r M ARG <<< "$E"; \
 			echo -n "$(tput setaf 4)$(tput sgr0) "; \
 			if [ "$M" = R ]; then \
-				if ssh -TG "$ARG" | grep -qE "^remotecommand " || [ -z "$REMOTE_CMD" ]; then \
+				if ssh -TG "$ARG" | grep -qE "^remotecommand " || [ -z "$FSHF_REMOTE_CMD" ]; then \
 					echo ssh $ARG; \
 				else \
-					echo ssh $ARG -t "'\''$REMOTE_CMD'\''"; \
+					echo ssh $ARG -t "'\''$FSHF_REMOTE_CMD'\''"; \
 				fi; \
 				echo; \
 				tput setaf 8; \
@@ -151,17 +140,17 @@ ENTRY=$(sed -n $((N + 1))p <<< "$ENTRIES" | cut -f 1 -d " ")
 IFS=: read -r M ARG <<< "$ENTRY"
 if [ "$M" = R ]; then
 	SSH_STATUS=0
-	if ssh -TG "$ARG" | grep -qE "^remotecommand " || [ -z "$REMOTE_CMD" ]; then
+	if ssh -TG "$ARG" | grep -qE "^remotecommand " || [ -z "$FSHF_REMOTE_CMD" ]; then
 		if ! ssh "$ARG"; then
 			SSH_STATUS=1
 		fi
 	else
-		if ! ssh "$ARG" -t "$REMOTE_CMD"; then
+		if ! ssh "$ARG" -t "$FSHF_REMOTE_CMD"; then
 			SSH_STATUS=1
 		fi
 	fi
 	# shellcheck disable=SC2181
-	if [ "$SSH_STATUS" -ne 0 ] && [ "$PAUSE_AFTER_SSH_FAIL" = 1 ]; then
+	if [ "$SSH_STATUS" -ne 0 ] && [ "$FSHF_PAUSE_AFTER_SSH_FAIL" = 1 ]; then
 		read -r -p "$(tput setaf 1)ssh failed, press return...$(tput sgr0)"
 		exit "$SSH_STATUS"
 	fi
